@@ -1,11 +1,12 @@
 {
   "name": "ProyectoBDmartin",
   "version": "1.0.0",
-  "description": "",
+  "description": "Aplicacion full stack para gestion de productos con SQL Server",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "vite"
+    "dev": "vite --config frontend/vite.config.js",
+    "dev:backend": "pnpm --dir backend dev",
+    "test": "echo \"No hay pruebas configuradas\""
   },
   "keywords": [],
   "author": "",
