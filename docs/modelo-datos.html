@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modelo de datos Ruta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: índice lateral fijo + columna principal agrupada en 4 categorías; el ER tiene su propio scroll horizontal */
+:root {
+  --bg: #f4f6f1; --paper: #ffffff; --sunk: #f8f9f6; --ink: #20231f; --muted: #6b7068; --line: #dfe2db;
+  --edge: #5d645b; --hot: #c9a400; --brand: #2d5a41; --brand-ink: #2d5a41; --yellow: #f5d834;
+  --a-cat: #2d5a41; --a-ubi: #3a5876; --a-usr: #8a5a10; --a-com: #7a3550;
+  --z-cat: #2d5a4112; --z-ubi: #3a587612; --z-usr: #8a5a1012; --z-com: #7a355012;
+  --chip: #eef1ea;
+  --display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --body: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111411; --paper: #1a1e1a; --sunk: #151915; --ink: #e6e9e3; --muted: #9aa196; --line: #313730;
+    --edge: #8f978c; --hot: #f5d834; --brand-ink: #8cc3a0; --chip: #242923;
+    --a-cat: #356b4d; --a-ubi: #44688c; --a-usr: #9a6614; --a-com: #8c3e5d;
+    --z-cat: #4f9a6e1a; --z-ubi: #5b88b51a; --z-usr: #c48a261a; --z-com: #b55a7f1a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--body); }
+a { color: inherit; }
+code, .mono { font-family: var(--mono); }
+:focus-visible { outline: 3px solid var(--hot); outline-offset: 2px; }
+
+.layout { max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); padding-block: 32px 80px; }
+
+/* Índice */
+nav.toc { position: sticky; top: 24px; align-self: start; display: grid; gap: 20px; max-height: calc(100vh - 48px); overflow-y: auto; }
+.brand { display: flex; align-items: center; gap: 10px; font: 800 20px/1 var(--display); letter-spacing: -0.04em; text-decoration: none; }
+.brand-mark { width: 28px; height: 28px; border-radius: 9px 9px 9px 3px; display: grid; place-items: center; background: var(--brand); color: var(--yellow); font: 800 19px/1 var(--display); transform: rotate(-5deg); }
+.toc-group { display: grid; gap: 2px; }
+.toc-group > span { font: 600 10.5px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 0 10px 8px; }
+.toc a { text-decoration: none; font-size: 14px; padding: 6px 10px; border-radius: 6px; color: var(--muted); }
+.toc a:hover { color: var(--ink); background: var(--chip); }
+.toc a.active { color: var(--ink); background: var(--paper); box-shadow: inset 2px 0 0 var(--yellow); font-weight: 600; }
+
+/* Principal */
+main { display: grid; gap: 56px; min-width: 0; }
+.hero { display: grid; gap: 14px; padding-bottom: 8px; }
+.kicker { font: 600 11px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--brand-ink); display: flex; align-items: center; gap: 8px; }
+.kicker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); }
+h1 { font: 800 clamp(32px, 5vw, 48px)/1.05 var(--display); letter-spacing: -0.035em; margin: 0; text-wrap: balance; }
+h2, h3, h4 { margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 70ch; }
+.lead { color: var(--muted); font-size: 16.5px; }
+
+.group { display: grid; gap: 20px; }
+.group-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+.group-head b { font: 500 13px/1 var(--mono); color: var(--muted); }
+.group-head h2 { font: 800 26px/1.1 var(--display); letter-spacing: -0.025em; }
+.group-head p { margin-left: auto; color: var(--muted); font-size: 13.5px; text-align: right; }
+
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 18px; min-width: 0; }
+.panel > header { display: grid; gap: 6px; }
+.panel h3 { font: 700 19px/1.25 var(--display); letter-spacing: -0.015em; }
+.panel > header p { color: var(--muted); font-size: 14.5px; }
+.sub { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stats div { background: var(--sunk); padding: 14px 16px; display: grid; gap: 2px; }
+.stats b { font: 800 26px/1 var(--display); font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12.5px; color: var(--muted); }
+
+.arch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arch div { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; background: var(--sunk); display: grid; gap: 2px; min-width: 0; }
+.arch div b { font: 700 14px var(--display); }
+.arch div span { font-size: 12.5px; color: var(--muted); }
+.arch i { font-style: normal; font-size: 12px; color: var(--muted); display: grid; justify-items: center; }
+.arch i::after { content: "→"; font-size: 18px; color: var(--ink); line-height: 1; }
+
+table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+table.t th { text-align: left; font: 600 11px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--sunk); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t tr:last-child td { border-bottom: 0; }
+table.t td:first-child { white-space: nowrap; }
+.tag { display: inline-block; font: 500 11px/1 var(--mono); padding: 4px 6px; border-radius: 4px; background: var(--chip); white-space: nowrap; }
+
+.rules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.rules li { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 4px; background: var(--sunk); }
+.rules li b { font: 500 11px/1 var(--mono); color: var(--brand-ink); }
+.rules li span { font-size: 14px; }
+
+/* ER */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--sunk); }
+.diagram svg { display: block; width: 1290px; max-width: none; height: auto; }
+.hint { font-size: 13px; color: var(--muted); }
+.zone rect { stroke: none; }
+.zone text { font: 700 10.5px var(--body); letter-spacing: .14em; }
+.zone.cat rect { fill: var(--z-cat); } .zone.cat text { fill: var(--a-cat); }
+.zone.ubi rect { fill: var(--z-ubi); } .zone.ubi text { fill: var(--a-ubi); }
+.zone.usr rect { fill: var(--z-usr); } .zone.usr text { fill: var(--a-usr); }
+.zone.com rect { fill: var(--z-com); } .zone.com text { fill: var(--a-com); }
+@media (prefers-color-scheme: dark) { .zone text { filter: brightness(1.7); } }
+.nota rect { fill: var(--paper); stroke: var(--line); }
+.nota text { fill: var(--muted); font: 500 11.5px var(--body); }
+.nota .nt { fill: var(--ink); font: 700 12px var(--display); }
+.edge path, .edge line, .edge circle, .nota path, .nota line, .nota circle { stroke: var(--edge); stroke-width: 1.4; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.edge circle, .nota circle { fill: var(--paper); }
+.edge text { fill: var(--muted); font: 500 11px var(--body); stroke: none; }
+.tbl rect.body { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.tbl rect.head { stroke: none; }
+.tbl .tname { fill: #ffffff; font: 700 13px var(--display); }
+.tbl .col { fill: var(--ink); font: 500 12px var(--body); }
+.tbl .typ { fill: var(--muted); font: 400 10.5px var(--mono); }
+.tbl .key { font: 500 9px var(--mono); fill: var(--muted); }
+.tbl .key.pk { fill: var(--hot); }
+.tbl { cursor: pointer; outline: none; }
+.tbl:focus-visible rect.body { stroke: var(--hot); stroke-width: 2; }
+.tbl.cat rect.head { fill: var(--a-cat); } .tbl.ubi rect.head { fill: var(--a-ubi); }
+.tbl.usr rect.head { fill: var(--a-usr); } .tbl.com rect.head { fill: var(--a-com); }
+svg .edge, svg .tbl { transition: opacity .15s; }
+svg.focus .edge { opacity: .12; }
+svg.focus .tbl { opacity: .35; }
+svg.focus .edge.hot, svg.focus .tbl.hot { opacity: 1; }
+svg.focus .edge.hot path, svg.focus .edge.hot line, svg.focus .edge.hot circle { stroke: var(--hot); stroke-width: 2; }
+
+/* Tablas por área */
+.area { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.area > header { padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; color: #fff; }
+.area.cat > header { background: var(--a-cat); } .area.ubi > header { background: var(--a-ubi); }
+.area.usr > header { background: var(--a-usr); } .area.com > header { background: var(--a-com); }
+.area > header h4 { font: 700 16px var(--display); }
+.area > header span { font-size: 13px; opacity: .85; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1px; background: var(--line); }
+.card { background: var(--paper); padding: 16px 18px; display: grid; gap: 10px; align-content: start; min-width: 0; scroll-margin-top: 24px; }
+.card.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--yellow) 35%, var(--paper)); } to { background: var(--paper); } }
+.card h5 { font: 700 15px/1.2 var(--mono); margin: 0; }
+.card > p { font-size: 13.5px; color: var(--muted); }
+.cols { display: grid; gap: 0; font-size: 13px; }
+.cols div { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.cols .k { font: 500 10px/1 var(--mono); color: var(--muted); }
+.cols .k.pk { color: var(--hot); }
+.cols .n { font-weight: 600; overflow-wrap: anywhere; }
+.cols .n small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.cols .ty { font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; }
+.card .extra { font-size: 12.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+
+.decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.decisions div { border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; background: var(--sunk); }
+.decisions b { font: 700 14.5px/1.3 var(--display); }
+.decisions p { font-size: 13.5px; color: var(--muted); }
+
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.levels div { border-radius: 10px; padding: 14px; border: 1px solid var(--line); display: grid; gap: 4px; }
+.levels b { font: 700 14px var(--display); }
+.levels span { font-size: 13px; color: var(--muted); }
+.levels div:last-child { border-color: var(--a-cat); background: var(--z-cat); }
+
+/* Flujo */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; counter-reset: s; }
+.steps li { counter-increment: s; border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; min-width: 0; background: var(--sunk); }
+.steps li::before { content: counter(s); font: 800 13px/1 var(--display); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: #20231f; }
+.steps h4 { font: 700 15px/1.3 var(--display); }
+.steps p { font-size: 13.5px; color: var(--muted); }
+.api { font: 500 11.5px/1.5 var(--mono); overflow-wrap: anywhere; }
+.objs { display: flex; flex-wrap: wrap; gap: 6px; }
+.o { font: 500 11px/1 var(--mono); padding: 5px 7px; border-radius: 5px; border: 1px solid var(--line); overflow-wrap: anywhere; background: var(--paper); }
+.o.v { background: var(--z-ubi); border-color: color-mix(in srgb, var(--a-ubi) 40%, transparent); }
+.o.sp { background: var(--z-cat); border-color: color-mix(in srgb, var(--a-cat) 40%, transparent); }
+.o.tr { background: var(--z-com); border-color: color-mix(in srgb, var(--a-com) 40%, transparent); }
+.o.cu { background: var(--z-usr); border-color: color-mix(in srgb, var(--a-usr) 40%, transparent); }
+.okinds { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); align-items: center; }
+.bg-tasks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.bg-tasks div { border: 1px dashed var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.bg-tasks b { font: 700 14px var(--display); }
+
+.machine { display: grid; gap: 10px; }
+.machine + .machine { border-top: 1px solid var(--line); padding-top: 18px; }
+.machine h4 { font: 700 14px/1 var(--mono); }
+.track { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.st { font: 500 11.5px/1 var(--mono); padding: 6px 9px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); color: var(--ink); }
+.st.ok { border-color: var(--a-cat); background: var(--z-cat); } .st.end { border-style: dashed; }
+
+/* Objetos SQL */
+.objgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.obj { border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; background: var(--sunk); min-width: 0; }
+.obj h4 { font: 600 13.5px/1.3 var(--mono); overflow-wrap: anywhere; }
+.obj .for { font-size: 12px; color: var(--muted); }
+.obj p { font-size: 13.5px; }
+.why { display: grid; gap: 6px; font-size: 13.5px; }
+.why b { font-weight: 700; }
+.caveat { font-size: 13px; color: var(--muted); border-left: 3px solid var(--yellow); padding: 4px 0 4px 12px; }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+summary { cursor: pointer; padding: 8px 12px; font: 600 12.5px var(--body); color: var(--muted); }
+pre { margin: 0; padding: 12px 14px; overflow-x: auto; font: 12px/1.55 var(--mono); border-top: 1px solid var(--line); }
+.kind-row { display: grid; gap: 12px; }
+.kind-row > .sub { display: flex; align-items: center; gap: 8px; }
+.kind-row > .sub i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  nav.toc { top: 0; z-index: 5; max-height: none; background: var(--bg); padding: 12px 0; border-bottom: 1px solid var(--line);
+    display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; }
+  .toc-group { display: flex; gap: 2px; }
+  .toc-group > span, .brand { display: none; }
+  .group-head { flex-wrap: wrap; } .group-head p { margin-left: 0; text-align: left; flex-basis: 100%; }
+  .panel { padding: 18px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } svg .edge, svg .tbl { transition: none; } .card.flash { animation: none; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Índice">
+  <a class="brand" href="#inicio"><span class="brand-mark">r</span>ruta.</a>
+  <div class="toc-group"><span>Visión general</span>
+    <a href="#resumen">Resumen</a><a href="#requisitos">Requisitos</a><a href="#reglas">Reglas de negocio</a></div>
+  <div class="toc-group"><span>Modelo de datos</span>
+    <a href="#er">Diagrama ER</a><a href="#tablas">Tablas por área</a><a href="#relaciones">Relaciones</a><a href="#decisiones">Decisiones de diseño</a><a href="#integridad">Integridad</a></div>
+  <div class="toc-group"><span>Aplicación</span>
+    <a href="#flujo">Flujo</a><a href="#estados">Estados</a><a href="#mapeo">Interfaz → base</a></div>
+  <div class="toc-group"><span>Objetos SQL</span>
+    <a href="#vistas">Vistas y función</a><a href="#procedimientos">Procedimientos</a><a href="#triggers">Triggers</a><a href="#cursor">Cursor</a></div>
+</nav>
+
+<main>
+  <div class="hero" id="inicio">
+    <span class="kicker">Proyecto BD · Avance 1</span>
+    <h1>Modelo de datos Ruta</h1>
+    <p class="lead">Base de datos del marketplace de autos usados Ruta: catálogo de vehículos, ubicación, usuarios y solicitudes de compra que confirma un asesor. Motor SQL Server, acceso desde el backend con SQL explícito y parametrizado, sin ORM.</p>
+  </div>
+
+  <!-- ============ 1. VISIÓN GENERAL ============ -->
+  <div class="group">
+    <div class="group-head"><b>01</b><h2>Visión general</h2><p>Qué hace la aplicación y qué reglas debe respetar la base</p></div>
+
+    <section class="panel" id="resumen">
+      <header><h3>Resumen</h3><p>Un cliente navega el catálogo, filtra, guarda favoritos, arma un carrito y envía una solicitud de compra. Un asesor la revisa y confirma el precio final; la compra no se paga en línea.</p></header>
+      <div class="stats">
+        <div><b>14</b><span>tablas</span></div><div><b>17</b><span>claves foráneas</span></div><div><b>3FN</b><span>normalización</span></div>
+        <div><b>4</b><span>vistas</span></div><div><b>6</b><span>procedimientos</span></div><div><b>1</b><span>función</span></div><div><b>2</b><span>triggers</span></div><div><b>1</b><span>cursor</span></div>
+      </div>
+      <span class="sub">Arquitectura</span>
+      <div class="arch">
+        <div><b>Frontend</b><span>Vite · HTML/JS</span></div><i>HTTP / JSON</i>
+        <div><b>API</b><span>Node · Express · mssql</span></div><i>SQL parametrizado</i>
+        <div><b>SQL Server</b><span>tablas, vistas, SP, triggers</span></div>
+      </div>
+      <p class="hint">El frontend nunca se conecta a la base. Solo la API tiene las credenciales.</p>
+    </section>
+
+    <section class="panel" id="requisitos">
+      <header><h3>Requisitos funcionales</h3><p>Lo que la interfaz permite hacer, y de donde salen las entidades del modelo.</p></header>
+      <div class="tw"><table class="t">
+        <thead><tr><th>#</th><th>Requisito</th><th>Quién</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag">RF1</span></td><td>Ver el catálogo de autos disponibles: foto, marca, modelo, versión, año, km, transmisión, combustible, precio, cuota y ubicación</td><td>Cualquiera</td></tr>
+          <tr><td><span class="tag">RF2</span></td><td>Buscar por marca, modelo o versión</td><td>Cualquiera</td></tr>
+          <tr><td><span class="tag">RF3</span></td><td>Filtrar por tipo de vehículo, rango de precio y año; ver cuántos autos hay por tipo</td><td>Cualquiera</td></tr>
+          <tr><td><span class="tag">RF4</span></td><td>Ordenar por recomendados, menor precio, mayor precio o más nuevos</td><td>Cualquiera</td></tr>
+          <tr><td><span class="tag">RF5</span></td><td>Iniciar sesión con correo y contraseña</td><td>Cliente</td></tr>
+          <tr><td><span class="tag">RF6</span></td><td>Marcar autos como favoritos</td><td>Cliente</td></tr>
+          <tr><td><span class="tag">RF7</span></td><td>Agregar y quitar autos del carrito y ver el subtotal</td><td>Cliente</td></tr>
+          <tr><td><span class="tag">RF8</span></td><td>Enviar una solicitud de compra, al contado o en cuotas, con dirección de entrega</td><td>Cliente</td></tr>
+          <tr><td><span class="tag">RF9</span></td><td>Confirmar o rechazar solicitudes</td><td>Asesor</td></tr>
+          <tr><td><span class="tag">RF10</span></td><td>Publicar autos y cambiar su precio; mostrar "Bajó de precio"</td><td>Admin</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="panel" id="reglas">
+      <header><h3>Reglas de negocio</h3><p>Restricciones del negocio que el modelo y los objetos SQL deben garantizar.</p></header>
+      <ul class="rules">
+        <li><b>RN1</b><span>Cada auto usado es único (tiene patente). No hay stock de unidades iguales; el estado del auto reemplaza al stock.</span></li>
+        <li><b>RN2</b><span>Un auto solo puede estar en una solicitud activa. Al solicitarlo queda reservado.</span></li>
+        <li><b>RN3</b><span>El precio que vale para la solicitud es el del momento en que se envió.</span></li>
+        <li><b>RN4</b><span>Solo un usuario con rol ASESOR puede confirmar o rechazar una solicitud.</span></li>
+        <li><b>RN5</b><span>Una solicitud pendiente por más de 72 horas vence y el auto vuelve a estar disponible.</span></li>
+        <li><b>RN6</b><span>Todo cambio de precio queda registrado, sin importar desde dónde se haga.</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ============ 2. MODELO ============ -->
+  <div class="group">
+    <div class="group-head"><b>02</b><h2>Modelo de datos</h2><p>14 tablas en 4 áreas, normalizadas hasta 3FN</p></div>
+
+    <section class="panel" id="er">
+      <header><h3>Diagrama entidad-relación</h3><p>Cada fondo de color es un área del modelo. Pasa el cursor sobre una tabla para resaltar sus relaciones; haz clic para ir a su detalle.</p></header>
+      <div class="legend">
+        <span><i style="background:var(--a-cat)"></i>Catálogo del vehículo</span>
+        <span><i style="background:var(--a-ubi)"></i>Ubicación</span>
+        <span><i style="background:var(--a-usr)"></i>Usuarios e interacción</span>
+        <span><i style="background:var(--a-com)"></i>Compra</span>
+      </div>
+      <div class="diagram"><svg id="er-svg" viewBox="0 0 1290 790" role="img" aria-label="Diagrama entidad-relación con 14 tablas agrupadas en 4 áreas"></svg></div>
+    </section>
+
+    <section class="panel" id="tablas">
+      <header><h3>Tablas por área</h3><p>Diccionario de datos: columnas, tipos y restricciones. Convenciones: PK con <code>INT IDENTITY(1,1)</code>, montos en <code>DECIMAL(14,2)</code> (nunca FLOAT para dinero), fechas en <code>DATETIME2</code>.</p></header>
+      <div id="areas" style="display:grid;gap:16px"></div>
+    </section>
+
+    <section class="panel" id="relaciones">
+      <header><h3>Relaciones y cardinalidades</h3><p>Se lee "una X tiene cero o muchas Y". Las relaciones N:M se resuelven con una tabla intermedia.</p></header>
+      <div class="tw"><table class="t">
+        <thead><tr><th>Relación</th><th>Cardinalidad</th><th>Implementación</th></tr></thead>
+        <tbody>
+          <tr><td>Provincia — Ciudad</td><td><span class="tag">1 : N</span></td><td>FK Ciudad.ProvinciaId</td></tr>
+          <tr><td>Marca — Modelo</td><td><span class="tag">1 : N</span></td><td>FK Modelo.MarcaId</td></tr>
+          <tr><td>Categoria — Modelo</td><td><span class="tag">1 : N</span></td><td>FK Modelo.CategoriaId</td></tr>
+          <tr><td>Modelo — Vehiculo</td><td><span class="tag">1 : N</span></td><td>FK Vehiculo.ModeloId</td></tr>
+          <tr><td>Combustible — Vehiculo</td><td><span class="tag">1 : N</span></td><td>FK Vehiculo.CombustibleId</td></tr>
+          <tr><td>Ciudad — Vehiculo</td><td><span class="tag">1 : N</span></td><td>FK Vehiculo.CiudadId</td></tr>
+          <tr><td>Vehiculo — HistorialPrecio</td><td><span class="tag">1 : N</span></td><td>FK HistorialPrecio.VehiculoId</td></tr>
+          <tr><td>Usuario — Vehiculo (favoritos)</td><td><span class="tag">N : M</span></td><td>Tabla intermedia Favorito</td></tr>
+          <tr><td>Usuario — Vehiculo (carrito)</td><td><span class="tag">N : M</span></td><td>Tabla intermedia CarritoItem</td></tr>
+          <tr><td>Usuario (cliente) — SolicitudCompra</td><td><span class="tag">1 : N</span></td><td>FK SolicitudCompra.UsuarioId</td></tr>
+          <tr><td>Usuario (asesor) — SolicitudCompra</td><td><span class="tag">0..1 : N</span></td><td>FK SolicitudCompra.AsesorId, NULL mientras nadie la atiende</td></tr>
+          <tr><td>PlanFinanciacion — SolicitudCompra</td><td><span class="tag">0..1 : N</span></td><td>FK SolicitudCompra.PlanId, NULL = contado</td></tr>
+          <tr><td>Ciudad — SolicitudCompra</td><td><span class="tag">1 : N</span></td><td>FK SolicitudCompra.CiudadEntregaId</td></tr>
+          <tr><td>SolicitudCompra — Vehiculo</td><td><span class="tag">N : M</span></td><td>Tabla intermedia SolicitudDetalle, con atributo propio PrecioAcordado</td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint">Usuario aparece dos veces en SolicitudCompra (cliente y asesor): son dos FK distintas hacia la misma tabla.</p>
+    </section>
+
+    <section class="panel" id="decisiones">
+      <header><h3>Decisiones de diseño</h3><p>El porqué de cada elección. Es lo que más preguntan en una presentación.</p></header>
+      <div class="decisions">
+        <div><b>Normalización hasta 3FN</b><p>1FN: "Palermo, Buenos Aires" se separa en Ciudad y Provincia. 2FN: en las PK compuestas cada atributo depende de la clave completa. 3FN: la provincia depende de la ciudad y la categoría del modelo, no del auto.</p></div>
+        <div><b>Marca y Modelo en tablas aparte</b><p>Si "Toyota" fuera texto en cada auto, alguien escribe "toyota" o "Toyta" y el filtro falla. Con catálogo y FK el valor existe una sola vez.</p></div>
+        <div><b>Categoría en Modelo, no en Vehiculo</b><p>Todo Corolla Cross es SUV. Guardarla en Vehiculo sería una dependencia transitiva (Vehiculo → Modelo → Categoria).</p></div>
+        <div><b>Transmisión con CHECK, Combustible con tabla</b><p>Transmisión tiene dos valores fijos. Combustible es filtro de la interfaz y puede crecer (GNC, híbrido enchufable).</p></div>
+        <div><b>El carrito no tiene cantidad</b><p>Cada auto es único (RN1). La PK (UsuarioId, VehiculoId) garantiza que cada auto aparezca una vez por carrito.</p></div>
+        <div><b>La cuota no se guarda</b><p>Depende del precio y del plan. Si se guardara y cambia el precio, quedaría mal. Se calcula con fn_CuotaMensual.</p></div>
+        <div><b>PrecioAcordado sí se guarda</b><p>No es redundancia: es la foto del precio al momento de la solicitud (RN3). Si el precio cambia mañana, la solicitud de ayer no cambia.</p></div>
+        <div><b>Sin columna Total en la solicitud</b><p>El total es la suma de los detalles; se calcula en vw_SolicitudesResumen. Guardarlo podría desalinearse.</p></div>
+        <div><b>Rol como columna con CHECK</b><p>Tres roles fijos sin atributos propios. Si los permisos fueran configurables, se pasaría a tablas Rol y Permiso.</p></div>
+        <div><b>"El asesor debe tener rol ASESOR" va en un SP</b><p>Un CHECK solo mira la fila actual y no puede consultar otra tabla. RN4 se valida en sp_ResolverSolicitud.</p></div>
+        <div><b>Los autos no se borran</b><p>Un auto vendido aparece en solicitudes históricas. Se usa Estado PAUSADO o VENDIDO (borrado lógico).</p></div>
+      </div>
+    </section>
+
+    <section class="panel" id="integridad">
+      <header><h3>Integridad</h3><p>Qué protege cada tipo de restricción y en qué capa se valida.</p></header>
+      <div class="tw"><table class="t">
+        <thead><tr><th>Tipo</th><th>Dónde</th><th>Qué protege</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag">PRIMARY KEY</span></td><td>Todas las tablas</td><td>Cada fila se identifica de forma única</td></tr>
+          <tr><td><span class="tag">PK compuesta</span></td><td>Favorito, CarritoItem, SolicitudDetalle</td><td>Sin duplicados (el mismo auto dos veces)</td></tr>
+          <tr><td><span class="tag">FOREIGN KEY</span></td><td>17 relaciones</td><td>No hay autos de un modelo inexistente ni solicitudes de usuarios inexistentes</td></tr>
+          <tr><td><span class="tag">UNIQUE</span></td><td>Email, Patente, nombres de catálogo, (MarcaId, Nombre), (ProvinciaId, Nombre)</td><td>Un correo por cuenta, una patente por auto</td></tr>
+          <tr><td><span class="tag">CHECK</span></td><td>Precio &gt; 0, Kilometraje ≥ 0, rango de Anio, Estado, Rol, Transmision, cuotas &gt; 0, tasa ≥ 0, asesor ≠ cliente</td><td>Valores imposibles no entran</td></tr>
+          <tr><td><span class="tag">DEFAULT</span></td><td>Fechas, Estado, Rol, Activo</td><td>Valores consistentes sin depender del backend</td></tr>
+          <tr><td><span class="tag">ON DELETE CASCADE</span></td><td>Favorito y CarritoItem → Usuario</td><td>Al eliminar un usuario se van sus favoritos y carrito</td></tr>
+          <tr><td><span class="tag">NO ACTION</span></td><td>El resto de las FK</td><td>No se puede borrar un auto que está en una solicitud</td></tr>
+          <tr><td><span class="tag">Trigger</span></td><td>Vehiculo</td><td>Historial de precios y limpieza de carritos</td></tr>
+          <tr><td><span class="tag">Validación en SP</span></td><td>sp_CrearSolicitudCompra, sp_ResolverSolicitud</td><td>Reglas que cruzan tablas (RN2, RN4)</td></tr>
+        </tbody>
+      </table></div>
+      <span class="sub">Tres niveles de validación</span>
+      <div class="levels">
+        <div><b>Frontend</b><span>Valida para la experiencia de uso. No es seguridad: se puede saltar.</span></div>
+        <div><b>Backend</b><span>Valida tipos y formatos antes de llamar a la base y siempre usa parámetros.</span></div>
+        <div><b>Base de datos</b><span>Restricciones y SP. Es la última barrera y la única que no se puede saltar.</span></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ 3. APLICACIÓN ============ -->
+  <div class="group">
+    <div class="group-head"><b>03</b><h2>Aplicación</h2><p>Cómo cada acción de la interfaz llega a la base</p></div>
+
+    <section class="panel" id="flujo">
+      <header><h3>Flujo: del clic a la tabla</h3><p>Recorrido del cliente, con el endpoint de la API y el objeto SQL que se ejecuta en cada paso.</p></header>
+      <div class="okinds"><span class="o sp">procedimiento</span><span class="o v">vista</span><span class="o tr">trigger</span><span class="o cu">cursor</span><span class="o">consulta directa</span></div>
+      <ol class="steps">
+        <li><h4>Ver el catálogo</h4><p>Grilla de autos disponibles y conteo por tipo en el filtro.</p>
+          <span class="api">GET /api/vehiculos<br>GET /api/categorias</span>
+          <div class="objs"><span class="o sp">sp_BuscarVehiculos</span><span class="o v">vw_CatalogoVehiculos</span><span class="o v">vw_ConteoPorCategoria</span></div></li>
+        <li><h4>Buscar, filtrar, ordenar</h4><p>Marca, modelo o versión; tipo; rango de precio y año.</p>
+          <span class="api">GET /api/vehiculos?texto=&amp;categoriaId=&amp;precioMin=&amp;orden=</span>
+          <div class="objs"><span class="o sp">sp_BuscarVehiculos</span></div></li>
+        <li><h4>Iniciar sesión</h4><p>Se trae el hash por email y se compara con bcrypt en el backend. La contraseña nunca llega a la base.</p>
+          <span class="api">POST /api/auth/login</span>
+          <div class="objs"><span class="o">SELECT Usuario WHERE Email = @Email</span></div></li>
+        <li><h4>Favoritos y carrito</h4><p>El carrito agrega o quita autos, sin cantidades.</p>
+          <span class="api">POST /api/favoritos/:id<br>POST /api/carrito · GET /api/carrito</span>
+          <div class="objs"><span class="o sp">sp_AlternarFavorito</span><span class="o sp">sp_AgregarAlCarrito</span><span class="o v">vw_CarritoUsuario</span></div></li>
+        <li><h4>Enviar solicitud</h4><p>Transacción: cabecera, detalles con el precio del momento, autos a RESERVADO, carrito vacío.</p>
+          <span class="api">POST /api/solicitudes</span>
+          <div class="objs"><span class="o sp">sp_CrearSolicitudCompra</span><span class="o tr">trg_Vehiculo_SalidaDeVenta</span></div></li>
+        <li><h4>El asesor resuelve</h4><p>Confirma (autos VENDIDO) o rechaza (autos vuelven a DISPONIBLE).</p>
+          <span class="api">GET /api/solicitudes<br>PATCH /api/solicitudes/:id</span>
+          <div class="objs"><span class="o v">vw_SolicitudesResumen</span><span class="o sp">sp_ResolverSolicitud</span></div></li>
+      </ol>
+      <span class="sub">Procesos que no inicia el cliente</span>
+      <div class="bg-tasks">
+        <div><b>El admin cambia un precio</b><p class="hint"><code>PATCH /api/vehiculos/:id/precio</code> hace un UPDATE. El trigger guarda el precio anterior y el nuevo; de ahí sale la etiqueta "Bajó de precio".</p><div class="objs"><span class="o tr">trg_Vehiculo_CambioPrecio</span></div></div>
+        <div><b>Cada hora, en segundo plano</b><p class="hint">El backend ejecuta el SP que vence las solicitudes pendientes de más de 72 h.</p><div class="objs"><span class="o cu">sp_VencerSolicitudesPendientes</span></div></div>
+      </div>
+    </section>
+
+    <section class="panel" id="estados">
+      <header><h3>Ciclo de vida</h3><p>Estados posibles y qué los cambia. Solo se sale de PENDIENTE; una solicitud resuelta no vuelve atrás.</p></header>
+      <div class="machine"><h4>Vehiculo.Estado</h4>
+        <div class="track"><span class="st ok">DISPONIBLE</span>entra a una solicitud →<span class="st">RESERVADO</span>asesor confirma →<span class="st end">VENDIDO</span></div>
+        <div class="track"><span class="st">RESERVADO</span>rechazada, cancelada o vencida →<span class="st ok">DISPONIBLE</span></div>
+        <div class="track"><span class="st ok">DISPONIBLE</span>admin pausa / reactiva ⇄<span class="st">PAUSADO</span></div>
+      </div>
+      <div class="machine"><h4>SolicitudCompra.Estado</h4>
+        <div class="track"><span class="st ok">PENDIENTE</span>asesor confirma →<span class="st end">CONFIRMADA</span></div>
+        <div class="track"><span class="st ok">PENDIENTE</span>asesor rechaza →<span class="st end">RECHAZADA</span></div>
+        <div class="track"><span class="st ok">PENDIENTE</span>cliente cancela →<span class="st end">CANCELADA</span></div>
+        <div class="track"><span class="st ok">PENDIENTE</span>72 h sin respuesta (cursor) →<span class="st end">VENCIDA</span></div>
+      </div>
+    </section>
+
+    <section class="panel" id="mapeo">
+      <header><h3>Interfaz → base de datos</h3><p>De dónde sale cada dato que muestra el mockup.</p></header>
+      <div class="tw"><table class="t">
+        <thead><tr><th>En la interfaz</th><th>Origen en la base</th></tr></thead>
+        <tbody>
+          <tr><td>"Toyota Corolla Cross XEI"</td><td>Marca.Nombre + Modelo.Nombre + Vehiculo.Version</td></tr>
+          <tr><td>"2023 · 18.500 km"</td><td>Vehiculo.Anio, Vehiculo.Kilometraje</td></tr>
+          <tr><td>"Automática · Híbrido"</td><td>Vehiculo.Transmision, Combustible.Nombre</td></tr>
+          <tr><td>"$ 28.900.000"</td><td>Vehiculo.Precio</td></tr>
+          <tr><td>"48 cuotas de $ 1.020.000"</td><td>fn_CuotaMensual(Precio, CantidadCuotas, TasaMensual)</td></tr>
+          <tr><td>"Palermo, Buenos Aires"</td><td>Ciudad.Nombre + Provincia.Nombre</td></tr>
+          <tr><td>Etiqueta "Único dueño"</td><td>Vehiculo.Etiqueta</td></tr>
+          <tr><td>Etiqueta "Bajó de precio"</td><td>vw_CatalogoVehiculos.BajoDePrecio, desde HistorialPrecio</td></tr>
+          <tr><td>Menú SUV / Sedanes / Pick-ups</td><td>Categoria</td></tr>
+          <tr><td>Conteo del filtro "SUV 6"</td><td>vw_ConteoPorCategoria</td></tr>
+          <tr><td>Buscador, rangos y "Ordenar por"</td><td>Parámetros de sp_BuscarVehiculos</td></tr>
+          <tr><td>Corazón</td><td>Favorito</td></tr>
+          <tr><td>Carrito, contador y subtotal</td><td>CarritoItem, vw_CarritoUsuario</td></tr>
+          <tr><td>"Ingresá" / "Hola, Alex"</td><td>Usuario</td></tr>
+          <tr><td>"Tu solicitud de compra quedó registrada"</td><td>SolicitudCompra + SolicitudDetalle</td></tr>
+          <tr><td>"El precio final se confirma con un asesor"</td><td>SolicitudCompra.AsesorId, Estado</td></tr>
+          <tr><td>"Envío a domicilio"</td><td>SolicitudCompra.DireccionEntrega, CiudadEntregaId</td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint">Fuera del alcance de esta etapa: "Vender mi auto", varias fotos por auto (tabla VehiculoImagen) y el registro de la inspección de 120 puntos (tabla Inspeccion).</p>
+    </section>
+  </div>
+
+  <!-- ============ 4. OBJETOS SQL ============ -->
+  <div class="group">
+    <div class="group-head"><b>04</b><h2>Objetos SQL</h2><p>Lógica que vive en la base y por qué está ahí</p></div>
+
+    <section class="panel" id="vistas">
+      <header><h3>Vistas y función</h3><p>Cada vista resuelve una pantalla concreta; ninguna es copia de una tabla.</p></header>
+      <div class="kind-row"><span class="sub"><i style="background:var(--a-ubi)"></i>Vistas</span>
+        <div class="objgrid">
+          <div class="obj"><h4>vw_CatalogoVehiculos</h4><span class="for">Pantalla: grilla del catálogo</span><p>JOIN de 7 tablas, solo autos DISPONIBLE. Arma "Ciudad, Provincia", calcula la cuota con el plan más largo y marca <code>BajoDePrecio</code> con una subconsulta sobre HistorialPrecio de los últimos 30 días.</p></div>
+          <div class="obj"><h4>vw_ConteoPorCategoria</h4><span class="for">Pantalla: filtro "Tipo de vehículo"</span><p>LEFT JOIN + GROUP BY + COUNT. Incluye las categorías con 0 autos porque el filtro de estado va en el ON y no en el WHERE.</p></div>
+          <div class="obj"><h4>vw_CarritoUsuario</h4><span class="for">Pantalla: cajón del carrito</span><p>Autos del carrito con marca, modelo, precio, foto y si siguen disponibles.</p></div>
+          <div class="obj"><h4>vw_SolicitudesResumen</h4><span class="for">Pantalla: panel del asesor</span><p>Solicitud, cliente, plan, cantidad de autos y total calculado con SUM(PrecioAcordado).</p></div>
+        </div>
+      </div>
+      <div class="kind-row"><span class="sub"><i style="background:var(--muted)"></i>Función</span>
+        <div class="obj"><h4>fn_CuotaMensual(@Precio, @Cuotas, @Tasa)</h4><span class="for">Usada por vw_CatalogoVehiculos</span>
+          <p>Cuota fija con sistema francés: <code>P · i / (1 − (1 + i)^−n)</code>; si la tasa es 0, <code>P / n</code>. Con 48 cuotas al 2,4 % mensual, un auto de $28.900.000 da ~$1.020.000, igual que la tarjeta del mockup.</p>
+          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER FUNCTION dbo.fn_CuotaMensual
+    (@Precio DECIMAL(14,2), @Cuotas SMALLINT, @Tasa DECIMAL(6,4))
+RETURNS DECIMAL(14,2)
+AS
+BEGIN
+    IF @Cuotas IS NULL OR @Cuotas &lt;= 0 RETURN NULL;
+    IF @Tasa = 0 RETURN @Precio / @Cuotas;
+    RETURN @Precio * @Tasa / (1 - POWER(CAST(1 + @Tasa AS FLOAT), -@Cuotas));
+END;</pre></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="procedimientos">
+      <header><h3>Procedimientos almacenados</h3><p>Reciben parámetros, validan con <code>THROW 50xxx</code> y, cuando tocan varias tablas, usan transacción. El backend traduce los códigos 50000–50999 a HTTP 400/409 con el mensaje; cualquier otro error es 500 sin detalles.</p></header>
+      <div class="tw"><table class="t">
+        <thead><tr><th>Procedimiento</th><th>Parámetros</th><th>Valida</th><th>Hace</th></tr></thead>
+        <tbody>
+          <tr><td><code>sp_BuscarVehiculos</code></td><td>@Texto, @CategoriaId, @PrecioMin, @PrecioMax, @AnioMin, @AnioMax, @Orden</td><td>Mín ≤ máx; orden válido</td><td>SELECT sobre vw_CatalogoVehiculos con filtros opcionales y ORDER BY con CASE</td></tr>
+          <tr><td><code>sp_AgregarAlCarrito</code></td><td>@UsuarioId, @VehiculoId</td><td>Auto DISPONIBLE; no repetido</td><td>INSERT en CarritoItem</td></tr>
+          <tr><td><code>sp_AlternarFavorito</code></td><td>@UsuarioId, @VehiculoId</td><td>Auto existe</td><td>Si existe lo borra, si no lo inserta</td></tr>
+          <tr><td><code>sp_CrearSolicitudCompra</code></td><td>@UsuarioId, @PlanId, @CiudadEntregaId, @DireccionEntrega</td><td>Carrito no vacío; plan activo; autos DISPONIBLE (con UPDLOCK)</td><td>Transacción: cabecera, detalles, autos a RESERVADO, vacía el carrito</td></tr>
+          <tr><td><code>sp_ResolverSolicitud</code></td><td>@SolicitudId, @AsesorId, @NuevoEstado</td><td>Solicitud PENDIENTE; estado válido; asesor con rol ASESOR</td><td>Transacción: estado de la solicitud y de sus autos</td></tr>
+          <tr><td><code>sp_VencerSolicitudesPendientes</code></td><td>@Horas = 72</td><td>—</td><td>Cursor que vence solicitudes antiguas</td></tr>
+        </tbody>
+      </table></div>
+      <div class="decisions">
+        <div><b>Por qué sp_CrearSolicitudCompra es una transacción</b><p>Son 4 operaciones. Si falla la tercera sin transacción, queda una solicitud sin autos reservados. Con transacción se hacen las 4 o ninguna (atomicidad).</p></div>
+        <div><b>Dos clientes compran el mismo auto a la vez</b><p>El SP lee los autos con <code>UPDLOCK, HOLDLOCK</code>. El segundo espera, ve el auto RESERVADO y recibe el error 50013.</p></div>
+        <div><b>El LIKE de la búsqueda no es inyección SQL</b><p><code>LIKE N'%' + @Texto + N'%'</code> concatena el valor del parámetro, no arma una consulta para ejecutar. Inyección habría con <code>EXEC('…' + @Texto)</code>.</p></div>
+      </div>
+    </section>
+
+    <section class="panel" id="triggers">
+      <header><h3>Triggers</h3><p>Se usan solo para lo que debe pasar siempre, venga de donde venga el cambio. La lógica de negocio principal queda a la vista en los SP.</p></header>
+      <div class="objgrid">
+        <div class="obj"><h4>trg_Vehiculo_CambioPrecio</h4><span class="for">AFTER UPDATE en Vehiculo</span>
+          <p>Cuando cambia el precio, guarda el anterior y el nuevo en HistorialPrecio.</p>
+          <div class="why"><b>Por qué trigger y no SP</b><span>El precio puede cambiarse desde un SP, el panel admin, un script o a mano. El trigger se ejecuta siempre (RN6) y alimenta "Bajó de precio".</span></div>
+          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER TRIGGER dbo.trg_Vehiculo_CambioPrecio
+ON dbo.Vehiculo
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT UPDATE(Precio) RETURN;
+
+    INSERT INTO dbo.HistorialPrecio (VehiculoId, PrecioAnterior, PrecioNuevo)
+    SELECT d.VehiculoId, d.Precio, i.Precio
+    FROM inserted i
+    JOIN deleted d ON d.VehiculoId = i.VehiculoId
+    WHERE i.Precio &lt;&gt; d.Precio;
+END;</pre></details>
+        </div>
+        <div class="obj"><h4>trg_Vehiculo_SalidaDeVenta</h4><span class="for">AFTER UPDATE en Vehiculo</span>
+          <p>Cuando un auto deja de estar DISPONIBLE, lo saca de todos los carritos. Los favoritos se mantienen.</p>
+          <div class="why"><b>Por qué trigger</b><span>Un auto sale de venta por varios caminos (otra compra, pausa del admin). Así nadie llega al checkout con un auto que ya no se puede comprar.</span></div>
+          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER TRIGGER dbo.trg_Vehiculo_SalidaDeVenta
+ON dbo.Vehiculo
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT UPDATE(Estado) RETURN;
+
+    DELETE ci
+    FROM dbo.CarritoItem ci
+    JOIN inserted i ON i.VehiculoId = ci.VehiculoId
+    JOIN deleted  d ON d.VehiculoId = i.VehiculoId
+    WHERE d.Estado = 'DISPONIBLE' AND i.Estado &lt;&gt; 'DISPONIBLE';
+END;</pre></details>
+        </div>
+      </div>
+      <div class="caveat"><code>deleted</code> tiene las filas antes del UPDATE e <code>inserted</code> las de después. Se usa JOIN y no variables porque el trigger se dispara una vez por sentencia, aunque el UPDATE toque muchas filas.</div>
+    </section>
+
+    <section class="panel" id="cursor">
+      <header><h3>Cursor</h3><p>sp_VencerSolicitudesPendientes recorre las solicitudes PENDIENTE con más de 72 horas y llama, una por una, a sp_ResolverSolicitud con estado VENCIDA (RN5).</p></header>
+      <div class="decisions">
+        <div><b>Reutiliza la lógica existente</b><p>sp_ResolverSolicitud ya valida y cambia el estado de una solicitud y sus autos, pero recibe un solo @SolicitudId. Para aplicarlo a varias hay que recorrerlas. Así las transiciones de estado tienen una sola fuente de verdad.</p></div>
+        <div><b>Aísla errores</b><p>Cada llamada va en su propio TRY/CATCH. Si una solicitud falla, se cuenta y se sigue con las demás. Con un UPDATE masivo, un error revierte todo el lote.</p></div>
+        <div><b>Quién lo ejecuta</b><p>SQL Server Express no trae SQL Server Agent, así que lo llama el backend cada hora. En la demo: <code>EXEC dbo.sp_VencerSolicitudesPendientes @Horas = 0;</code></p></div>
+      </div>
+      <div class="caveat">Si preguntan: un UPDATE basado en conjuntos sería más rápido. Se acepta el cursor porque el volumen es bajo (decenas al día) y corre en segundo plano, donde importa la consistencia y no la velocidad.</div>
+      <details><summary>Ver SQL</summary><pre>CREATE OR ALTER PROCEDURE dbo.sp_VencerSolicitudesPendientes
+    @Horas INT = 72
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @SolicitudId INT, @Vencidas INT = 0, @Errores INT = 0;
+
+    DECLARE cur_Vencidas CURSOR LOCAL FAST_FORWARD FOR
+        SELECT SolicitudId
+        FROM dbo.SolicitudCompra
+        WHERE Estado = 'PENDIENTE'
+          AND FechaSolicitud &lt; DATEADD(HOUR, -@Horas, SYSDATETIME());
+
+    OPEN cur_Vencidas;
+    FETCH NEXT FROM cur_Vencidas INTO @SolicitudId;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        BEGIN TRY
+            EXEC dbo.sp_ResolverSolicitud
+                 @SolicitudId = @SolicitudId, @AsesorId = NULL, @NuevoEstado = 'VENCIDA';
+            SET @Vencidas += 1;
+        END TRY
+        BEGIN CATCH
+            SET @Errores += 1;
+        END CATCH;
+
+        FETCH NEXT FROM cur_Vencidas INTO @SolicitudId;
+    END;
+
+    CLOSE cur_Vencidas;
+    DEALLOCATE cur_Vencidas;
+
+    SELECT @Vencidas AS SolicitudesVencidas, @Errores AS Errores;
+END;</pre></details>
+    </section>
+  </div>
+
+  <footer>Explicación completa, con las preguntas probables y el glosario, en <code>docs/modelo-datos.md</code>.</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  const AREAS = {
+    cat: { name: 'Catálogo del vehículo', desc: 'Qué auto es, cuánto cuesta y cómo cambió su precio' },
+    ubi: { name: 'Ubicación', desc: 'Dónde está el auto y dónde se entrega' },
+    usr: { name: 'Usuarios e interacción', desc: 'Quién usa la app y qué guarda' },
+    com: { name: 'Compra', desc: 'Solicitudes, sus autos y la financiación' }
+  };
+  // [columna, tipo, clave, nota]
+  const T = {
+    Marca: { a: 'cat', x: 40, y: 60, d: 'Fabricante del auto. Catálogo para no repetir "Toyota" escrito de formas distintas.',
+      rows: [['MarcaId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(50)','UK','NOT NULL']] },
+    Categoria: { a: 'cat', x: 40, y: 160, d: 'Tipo de carrocería: SUV, Sedán, Pick-up, Hatchback. Alimenta el filtro "Tipo de vehículo".',
+      rows: [['CategoriaId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(40)','UK','NOT NULL']] },
+    Combustible: { a: 'cat', x: 40, y: 260, d: 'Nafta, Diésel, Híbrido, Eléctrico. Es tabla porque es un filtro y puede crecer.',
+      rows: [['CombustibleId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(30)','UK','NOT NULL']] },
+    HistorialPrecio: { a: 'cat', x: 40, y: 380, d: 'Auditoría de cambios de precio. Solo la escribe el trigger trg_Vehiculo_CambioPrecio.',
+      rows: [['HistorialId','INT IDENTITY','PK',''],['VehiculoId','INT','FK','→ Vehiculo'],['PrecioAnterior','DECIMAL(14,2)','','NOT NULL'],['PrecioNuevo','DECIMAL(14,2)','','NOT NULL'],['FechaCambio','DATETIME2','','DEFAULT SYSDATETIME()']] },
+    Modelo: { a: 'cat', x: 290, y: 60, d: 'Modelo de una marca. Define la categoría: todo Corolla Cross es SUV.', extra: 'UNIQUE (MarcaId, Nombre)',
+      rows: [['ModeloId','INT IDENTITY','PK',''],['MarcaId','INT','FK','→ Marca'],['CategoriaId','INT','FK','→ Categoria'],['Nombre','NVARCHAR(60)','','NOT NULL']] },
+    Vehiculo: { a: 'cat', x: 290, y: 220, d: 'Cada auto publicado. Es una unidad única con patente; su Estado reemplaza al stock.',
+      rows: [['VehiculoId','INT IDENTITY','PK',''],['ModeloId','INT','FK','→ Modelo'],['CombustibleId','INT','FK','→ Combustible'],['CiudadId','INT','FK','→ Ciudad'],
+        ['Version','NVARCHAR(60)','','NOT NULL · ej. "XEI"'],['Anio','SMALLINT','','CHECK 1990 … año actual + 1'],['Kilometraje','INT','','CHECK ≥ 0'],
+        ['Transmision','VARCHAR(10)','','CHECK MANUAL | AUTOMATICA'],['Precio','DECIMAL(14,2)','','CHECK > 0'],['Patente','VARCHAR(10)','UK','NOT NULL'],
+        ['Estado','VARCHAR(12)','','DEFAULT DISPONIBLE · CHECK DISPONIBLE | RESERVADO | VENDIDO | PAUSADO'],['Etiqueta','NVARCHAR(40)','','NULL · "Único dueño"'],
+        ['ImagenUrl','NVARCHAR(300)','','NULL'],['FechaPublicacion','DATETIME2','','DEFAULT SYSDATETIME()']] },
+    Provincia: { a: 'ubi', x: 40, y: 650, d: 'Provincia de la ciudad. Separada de Ciudad por 3FN.',
+      rows: [['ProvinciaId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(60)','UK','NOT NULL']] },
+    Ciudad: { a: 'ubi', x: 290, y: 640, d: 'Ubicación del auto y destino de entrega de la solicitud.', extra: 'UNIQUE (ProvinciaId, Nombre): puede haber dos "San Martín" en provincias distintas, no en la misma.',
+      rows: [['CiudadId','INT IDENTITY','PK',''],['ProvinciaId','INT','FK','→ Provincia'],['Nombre','NVARCHAR(80)','','NOT NULL']] },
+    Favorito: { a: 'usr', x: 540, y: 70, d: 'Relación N:M usuario–auto. La PK compuesta impide marcar dos veces el mismo auto.', extra: 'ON DELETE CASCADE desde Usuario',
+      rows: [['UsuarioId','INT','PK FK','→ Usuario'],['VehiculoId','INT','PK FK','→ Vehiculo'],['FechaAgregado','DATETIME2','','DEFAULT SYSDATETIME()']] },
+    CarritoItem: { a: 'usr', x: 540, y: 210, d: 'Relación N:M usuario–auto. Sin columna cantidad: cada auto es único.', extra: 'ON DELETE CASCADE desde Usuario',
+      rows: [['UsuarioId','INT','PK FK','→ Usuario'],['VehiculoId','INT','PK FK','→ Vehiculo'],['FechaAgregado','DATETIME2','','DEFAULT SYSDATETIME()']] },
+    Usuario: { a: 'usr', x: 790, y: 60, d: 'Clientes, asesores y administradores en una sola tabla, distinguidos por Rol.',
+      rows: [['UsuarioId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(60)','','NOT NULL'],['Apellido','NVARCHAR(60)','','NOT NULL'],['Email','NVARCHAR(120)','UK','NOT NULL'],
+        ['PasswordHash','VARCHAR(100)','','hash bcrypt, nunca texto plano'],['Telefono','VARCHAR(20)','','NULL'],['Rol','VARCHAR(10)','','DEFAULT CLIENTE · CHECK CLIENTE | ASESOR | ADMIN'],
+        ['FechaRegistro','DATETIME2','','DEFAULT SYSDATETIME()'],['Activo','BIT','','DEFAULT 1']] },
+    SolicitudDetalle: { a: 'com', x: 540, y: 440, d: 'Autos de cada solicitud, con la foto del precio al momento de pedirla (RN3).',
+      rows: [['SolicitudId','INT','PK FK','→ SolicitudCompra'],['VehiculoId','INT','PK FK','→ Vehiculo'],['PrecioAcordado','DECIMAL(14,2)','','CHECK > 0']] },
+    SolicitudCompra: { a: 'com', x: 790, y: 420, d: 'Cabecera de la solicitud de compra. No guarda Total: se calcula sumando los detalles.', extra: 'CHECK (AsesorId IS NULL OR AsesorId <> UsuarioId): nadie se atiende a sí mismo.',
+      rows: [['SolicitudId','INT IDENTITY','PK',''],['UsuarioId','INT','FK','→ Usuario (cliente)'],['AsesorId','INT','FK','→ Usuario · NULL hasta que se atiende'],['PlanId','INT','FK','→ PlanFinanciacion · NULL = contado'],
+        ['CiudadEntregaId','INT','FK','→ Ciudad'],['DireccionEntrega','NVARCHAR(200)','','NOT NULL'],['Estado','VARCHAR(12)','','DEFAULT PENDIENTE · CHECK PENDIENTE | CONFIRMADA | RECHAZADA | CANCELADA | VENCIDA'],
+        ['FechaSolicitud','DATETIME2','','DEFAULT SYSDATETIME()'],['FechaRespuesta','DATETIME2','','NULL']] },
+    PlanFinanciacion: { a: 'com', x: 1050, y: 440, d: 'Planes de cuotas. 48 cuotas al 2,4 % mensual reproduce las cuotas del mockup.',
+      rows: [['PlanId','INT IDENTITY','PK',''],['Nombre','NVARCHAR(50)','','NOT NULL · ej. "48 cuotas"'],['CantidadCuotas','SMALLINT','','CHECK > 0'],['TasaMensual','DECIMAL(6,4)','','CHECK ≥ 0 · 0.0240 = 2,4 %'],['Activo','BIT','','DEFAULT 1']] }
+  };
+
+  /* ---------- Tarjetas por área ---------- */
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const areasEl = document.getElementById('areas');
+  Object.keys(AREAS).forEach(a => {
+    const names = Object.keys(T).filter(n => T[n].a === a);
+    const box = document.createElement('div');
+    box.className = 'area ' + a;
+    box.innerHTML = `<header><h4>${AREAS[a].name}</h4><span>${AREAS[a].desc} · ${names.length} tablas</span></header>` +
+      '<div class="cards">' + names.map(n => {
+        const t = T[n];
+        return `<article class="card" id="t-${n}"><h5>${n}</h5><p>${esc(t.d)}</p><div class="cols">` +
+          t.rows.map(r => `<div><span class="k ${r[2].startsWith('PK') ? 'pk' : ''}">${r[2].replace(' ', '·')}</span>` +
+            `<span class="n">${r[0]}${r[3] ? `<small>${esc(r[3])}</small>` : ''}</span><span class="ty">${r[1]}</span></div>`).join('') +
+          `</div>${t.extra ? `<div class="extra">${esc(t.extra)}</div>` : ''}</article>`;
+      }).join('') + '</div>';
+    areasEl.appendChild(box);
+  });
+
+  /* ---------- Diagrama ER ---------- */
+  const W = 200, HEAD = 30;
+  const h = n => HEAD + 8 + 20 * T[n].rows.length;
+  const R = (n, c) => T[n].y + HEAD + 14 + 20 * T[n].rows.findIndex(r => r[0] === c);
+  const L = n => T[n].x, Rt = n => T[n].x + W, Bt = n => T[n].y + h(n), Tp = n => T[n].y;
+  const elbow = (x1, y1, x2, y2, mx) => [[x1, y1], [mx, y1], [mx, y2], [x2, y2]];
+
+  const ZONES = [
+    { a: 'cat', x: 20, y: 20, w: 490, h: 560 },
+    { a: 'ubi', x: 20, y: 600, w: 490, h: 170 },
+    { a: 'usr', x: 520, y: 20, w: 510, h: 320 },
+    { a: 'com', x: 520, y: 380, w: 750, h: 290 }
+  ];
+
+  const E = [
+    { t: ['Marca','Modelo'], p: elbow(Rt('Marca'), R('Marca','MarcaId'), L('Modelo'), R('Modelo','MarcaId'), 255) },
+    { t: ['Categoria','Modelo'], p: elbow(Rt('Categoria'), R('Categoria','CategoriaId'), L('Modelo'), R('Modelo','CategoriaId'), 268) },
+    { t: ['Combustible','Vehiculo'], p: elbow(Rt('Combustible'), R('Combustible','CombustibleId'), L('Vehiculo'), R('Vehiculo','CombustibleId'), 265) },
+    { t: ['Modelo','Vehiculo'], p: [[390, Bt('Modelo')], [390, Tp('Vehiculo')]] },
+    { t: ['Vehiculo','HistorialPrecio'], p: [[330, Bt('Vehiculo')], [330, 562], [140, 562], [140, Bt('HistorialPrecio')]] },
+    { t: ['Provincia','Ciudad'], p: elbow(Rt('Provincia'), R('Provincia','ProvinciaId'), L('Ciudad'), R('Ciudad','ProvinciaId'), 265) },
+    { t: ['Ciudad','Vehiculo'], p: [[390, Tp('Ciudad')], [390, Bt('Vehiculo')]] },
+    { t: ['Ciudad','SolicitudCompra'], label: ['entrega en', 600, R('Ciudad','CiudadId') - 6],
+      p: [[Rt('Ciudad'), R('Ciudad','CiudadId')], [900, R('Ciudad','CiudadId')], [900, Bt('SolicitudCompra')]] },
+    { t: ['Vehiculo','Favorito'], p: elbow(Rt('Vehiculo'), R('Vehiculo','VehiculoId'), L('Favorito'), R('Favorito','VehiculoId'), 515) },
+    { t: ['Vehiculo','CarritoItem'], p: elbow(Rt('Vehiculo'), R('Vehiculo','VehiculoId'), L('CarritoItem'), R('CarritoItem','VehiculoId'), 515) },
+    { t: ['Vehiculo','SolicitudDetalle'], p: elbow(Rt('Vehiculo'), R('Vehiculo','VehiculoId'), L('SolicitudDetalle'), R('SolicitudDetalle','VehiculoId'), 515) },
+    { t: ['Usuario','Favorito'], p: elbow(L('Usuario'), R('Usuario','UsuarioId'), Rt('Favorito'), R('Favorito','UsuarioId'), 765) },
+    { t: ['Usuario','CarritoItem'], p: elbow(L('Usuario'), R('Usuario','UsuarioId'), Rt('CarritoItem'), R('CarritoItem','UsuarioId'), 765) },
+    { t: ['SolicitudCompra','SolicitudDetalle'], p: elbow(L('SolicitudCompra'), R('SolicitudCompra','SolicitudId'), Rt('SolicitudDetalle'), R('SolicitudDetalle','SolicitudId'), 765) },
+    { t: ['Usuario','SolicitudCompra'], label: ['cliente', 1012, 300],
+      p: [[Rt('Usuario'), R('Usuario','UsuarioId')], [1006, R('Usuario','UsuarioId')], [1006, R('SolicitudCompra','UsuarioId')], [Rt('SolicitudCompra'), R('SolicitudCompra','UsuarioId')]] },
+    { t: ['Usuario','SolicitudCompra'], opt: true, label: ['asesor', 958, 360], p: [[950, Bt('Usuario')], [950, Tp('SolicitudCompra')]] },
+    { t: ['PlanFinanciacion','SolicitudCompra'], opt: true,
+      p: elbow(L('PlanFinanciacion'), R('PlanFinanciacion','PlanId'), Rt('SolicitudCompra'), R('SolicitudCompra','PlanId'), 1030) }
+  ];
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('er-svg');
+  const el = (name, attrs, parent, text) => {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    parent.appendChild(n);
+    return n;
+  };
+  const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1; return [dx / d, dy / d]; };
+  const one = (g, p0, p1, opt) => {
+    const u = unit(p0, p1), n = [-u[1], u[0]], b = [p0[0] + u[0] * 9, p0[1] + u[1] * 9];
+    el('line', { x1: b[0] + n[0] * 6, y1: b[1] + n[1] * 6, x2: b[0] - n[0] * 6, y2: b[1] - n[1] * 6 }, g);
+    if (opt) el('circle', { cx: p0[0] + u[0] * 18, cy: p0[1] + u[1] * 18, r: 4 }, g);
+  };
+  const many = (g, prev, pn) => {
+    const u = unit(prev, pn), n = [-u[1], u[0]], c = [pn[0] - u[0] * 12, pn[1] - u[1] * 12];
+    el('path', { d: `M${c[0]} ${c[1]} L${pn[0] + n[0] * 6} ${pn[1] + n[1] * 6} M${c[0]} ${c[1]} L${pn[0] - n[0] * 6} ${pn[1] - n[1] * 6}` }, g);
+  };
+
+  ZONES.forEach(z => {
+    const g = el('g', { class: 'zone ' + z.a }, svg);
+    el('rect', { x: z.x, y: z.y, width: z.w, height: z.h, rx: 12 }, g);
+    el('text', { x: z.x + 16, y: z.y + 24 }, g, AREAS[z.a].name.toUpperCase());
+  });
+
+  // Notación (en el espacio libre de arriba a la derecha)
+  const nt = el('g', { class: 'nota' }, svg);
+  el('rect', { x: 1060, y: 20, width: 210, height: 168, rx: 10 }, nt);
+  el('text', { class: 'nt', x: 1076, y: 44 }, nt, 'Notación');
+  const row = (y, label, opt) => {
+    el('path', { d: `M1078 ${y} L1128 ${y}` }, nt);
+    one(nt, [1078, y], [1128, y], opt);
+    many(nt, [1078, y], [1128, y]);
+    el('text', { x: 1140, y: y + 4 }, nt, label);
+  };
+  row(70, 'uno → muchos', false);
+  row(98, '0..1 → muchos', true);
+  el('text', { x: 1076, y: 130 }, nt, 'PK clave primaria');
+  el('text', { x: 1076, y: 150 }, nt, 'FK clave foránea');
+  el('text', { x: 1076, y: 170 }, nt, 'UK valor único');
+
+  E.forEach(e => {
+    const g = el('g', { class: 'edge', 'data-t': e.t.join(' ') }, svg);
+    el('path', { d: 'M' + e.p.map(q => q.join(' ')).join(' L') }, g);
+    one(g, e.p[0], e.p[1], e.opt);
+    many(g, e.p[e.p.length - 2], e.p[e.p.length - 1]);
+    if (e.label) el('text', { x: e.label[1], y: e.label[2] }, g, e.label[0]);
+  });
+
+  Object.keys(T).forEach(name => {
+    const t = T[name], H = h(name);
+    const g = el('g', { class: 'tbl ' + t.a, 'data-n': name, tabindex: '0', role: 'link', 'aria-label': 'Ver detalle de la tabla ' + name }, svg);
+    el('rect', { class: 'body', x: t.x, y: t.y, width: W, height: H, rx: 7 }, g);
+    el('rect', { class: 'head', x: t.x, y: t.y, width: W, height: HEAD, rx: 7 }, g);
+    el('rect', { class: 'head', x: t.x, y: t.y + HEAD - 8, width: W, height: 8 }, g);
+    el('text', { class: 'tname', x: t.x + 12, y: t.y + 20 }, g, name);
+    t.rows.forEach((r, i) => {
+      const y = t.y + HEAD + 18 + 20 * i;
+      if (r[2]) el('text', { class: 'key ' + (r[2].startsWith('PK') ? 'pk' : ''), x: t.x + 10, y }, g, r[2].replace(' ', '·'));
+      el('text', { class: 'col', x: t.x + 50, y }, g, r[0]);
+      el('text', { class: 'typ', x: t.x + W - 10, y, 'text-anchor': 'end' }, g, r[1].replace(' IDENTITY', '').toLowerCase());
+    });
+    const on = () => {
+      svg.classList.add('focus');
+      g.classList.add('hot');
+      svg.querySelectorAll('.edge').forEach(ed => {
+        const ts = ed.dataset.t.split(' ');
+        if (ts.includes(name)) {
+          ed.classList.add('hot');
+          ts.forEach(o => svg.querySelector(`.tbl[data-n="${o}"]`).classList.add('hot'));
+        }
+      });
+    };
+    const off = () => { svg.classList.remove('focus'); svg.querySelectorAll('.hot').forEach(n => n.classList.remove('hot')); };
+    const go = () => {
+      const card = document.getElementById('t-' + name);
+      card.scrollIntoView({ block: 'start' });
+      card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+    };
+    g.addEventListener('mouseenter', on); g.addEventListener('mouseleave', off);
+    g.addEventListener('focus', on); g.addEventListener('blur', off);
+    g.addEventListener('click', go);
+    g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+  });
+
+  /* ---------- Índice: sección activa ---------- */
+  const links = [...document.querySelectorAll('.toc a[href^="#"]:not(.brand)')];
+  const byId = Object.fromEntries(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting && byId[en.target.id]) {
+        links.forEach(a => a.classList.remove('active'));
+        byId[en.target.id].classList.add('active');
+        if (getComputedStyle(document.querySelector('.toc')).position === 'sticky' && window.innerWidth <= 980) {
+          byId[en.target.id].scrollIntoView({ block: 'nearest', inline: 'center' });
+        }
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  Object.keys(byId).forEach(id => { const s = document.getElementById(id); if (s) io.observe(s); });
+})();
+</script>
+</body>
+</html>
