@@ -3,3 +3,5 @@ node_modules/
 .env.*
 !.env.example
 dist/
+# Material para quien presenta (no se entrega)
+presentador/

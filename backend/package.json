@@ -1,11 +1,15 @@
 {
-  "name": "proyecto-bd-martin-backend",
+  "name": "ruta-backend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "API de Ruta: Express + SQL Server (driver mssql, SQL explicito, sin ORM)",
   "scripts": {
-    "dev": "node --watch src/app.js",
-    "start": "node src/app.js"
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:init": "node scripts/init-db.js",
+    "test": "node --test --test-concurrency=1 test/api.test.js",
+    "db:pruebas": "node scripts/run-sql.js 05_pruebas.sql"
   },
   "dependencies": {
     "cors": "^2.8.5",

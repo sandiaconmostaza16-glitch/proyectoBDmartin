@@ -1,24 +1,18 @@
 {
-  "name": "ProyectoBDmartin",
+  "name": "ruta-proyecto-bd",
   "version": "1.0.0",
-  "description": "Aplicacion full stack para gestion de productos con SQL Server",
-  "main": "index.js",
+  "description": "Ruta: marketplace de autos usados. Frontend Vite + API Express + SQL Server (sin ORM)",
   "scripts": {
     "dev": "vite --config frontend/vite.config.js",
     "dev:backend": "pnpm --dir backend dev",
-    "test": "echo \"No hay pruebas configuradas\""
+    "db:init": "pnpm --dir backend db:init",
+    "db:pruebas": "pnpm --dir backend db:pruebas",
+    "test": "pnpm --dir backend test",
+    "build": "vite build --config frontend/vite.config.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "12.18.0",
-      "onFail": "download"
-    }
-  },
-  "packageManager": "pnpm@12.18.0",
   "type": "module",
   "dependencies": {
     "vite": "^8.3.6"

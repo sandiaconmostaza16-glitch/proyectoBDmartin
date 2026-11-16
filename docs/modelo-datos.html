@@ -238,16 +238,14 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   <div class="toc-group"><span>Modelo de datos</span>
     <a href="#er">Diagrama ER</a><a href="#tablas">Tablas por área</a><a href="#relaciones">Relaciones</a><a href="#decisiones">Decisiones de diseño</a><a href="#integridad">Integridad</a></div>
   <div class="toc-group"><span>Aplicación</span>
-    <a href="#flujo">Flujo</a><a href="#estados">Estados</a><a href="#mapeo">Interfaz → base</a></div>
-  <div class="toc-group"><span>Objetos SQL</span>
-    <a href="#vistas">Vistas y función</a><a href="#procedimientos">Procedimientos</a><a href="#triggers">Triggers</a><a href="#cursor">Cursor</a></div>
+    <a href="#objetos">Objetos SQL y API</a></div>
 </nav>
 
 <main>
   <div class="hero" id="inicio">
     <span class="kicker">Proyecto BD · Modelo objetivo</span>
     <h1>Modelo de datos Ruta</h1>
-    <p class="lead">Modelo objetivo del marketplace de vehículos usados Ruta: catálogo, transacciones unitarias, pagos, inspecciones, imágenes y logística. El esquema SQL se encuentra en <code>database/05_schema_vehiculos_objetivo.sql</code>.</p>
+    <p class="lead">Modelo objetivo del marketplace de vehículos usados Ruta: catálogo, transacciones unitarias, pagos, inspecciones, imágenes y logística. El esquema SQL se encuentra en <code>database/01_schema.sql</code>.</p>
   </div>
 
   <!-- ============ 1. VISIÓN GENERAL ============ -->
@@ -263,7 +261,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
       <span class="sub">Arquitectura</span>
       <div class="arch">
         <div><b>Frontend</b><span>Vite · HTML/JS</span></div><i>HTTP / JSON</i>
-        <div><b>Aplicación</b><span>Backend / Entity Framework</span></div><i>SQL parametrizado</i>
+        <div><b>Aplicación</b><span>Node · Express · mssql (sin ORM)</span></div><i>SQL parametrizado</i>
         <div><b>SQL Server</b><span>tablas, vistas, SP, triggers</span></div>
       </div>
       <p class="hint">El frontend nunca se conecta a la base. Solo la API tiene las credenciales.</p>
@@ -393,223 +391,20 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     </section>
   </div>
 
-  <p class="caveat">Las secciones de aplicación y objetos SQL que siguen son documentación heredada del modelo anterior. El diagrama, las relaciones y el diccionario de esta página sí reflejan el esquema objetivo de <code>database/05_schema_vehiculos_objetivo.sql</code>.</p>
-
-  <!-- ============ 3. APLICACIÓN ============ -->
-  <div class="group">
-    <div class="group-head"><b>03</b><h2>Aplicación</h2><p>Cómo cada acción de la interfaz llega a la base</p></div>
-
-    <section class="panel" id="flujo">
-      <header><h3>Flujo: del clic a la tabla</h3><p>Recorrido del cliente, con el endpoint de la API y el objeto SQL que se ejecuta en cada paso.</p></header>
-      <div class="okinds"><span class="o sp">procedimiento</span><span class="o v">vista</span><span class="o tr">trigger</span><span class="o cu">cursor</span><span class="o">consulta directa</span></div>
-      <ol class="steps">
-        <li><h4>Ver el catálogo</h4><p>Grilla de autos disponibles y conteo por tipo en el filtro.</p>
-          <span class="api">GET /api/vehiculos<br>GET /api/categorias</span>
-          <div class="objs"><span class="o sp">sp_BuscarVehiculos</span><span class="o v">vw_CatalogoVehiculos</span><span class="o v">vw_ConteoPorCategoria</span></div></li>
-        <li><h4>Buscar, filtrar, ordenar</h4><p>Marca, modelo o versión; tipo; rango de precio y año.</p>
-          <span class="api">GET /api/vehiculos?texto=&amp;categoriaId=&amp;precioMin=&amp;orden=</span>
-          <div class="objs"><span class="o sp">sp_BuscarVehiculos</span></div></li>
-        <li><h4>Iniciar sesión</h4><p>Se trae el hash por email y se compara con bcrypt en el backend. La contraseña nunca llega a la base.</p>
-          <span class="api">POST /api/auth/login</span>
-          <div class="objs"><span class="o">SELECT Usuario WHERE Email = @Email</span></div></li>
-        <li><h4>Favoritos y carrito</h4><p>El carrito agrega o quita autos, sin cantidades.</p>
-          <span class="api">POST /api/favoritos/:id<br>POST /api/carrito · GET /api/carrito</span>
-          <div class="objs"><span class="o sp">sp_AlternarFavorito</span><span class="o sp">sp_AgregarAlCarrito</span><span class="o v">vw_CarritoUsuario</span></div></li>
-        <li><h4>Enviar solicitud</h4><p>Transacción: cabecera, detalles con el precio del momento, autos a RESERVADO, carrito vacío.</p>
-          <span class="api">POST /api/solicitudes</span>
-          <div class="objs"><span class="o sp">sp_CrearSolicitudCompra</span><span class="o tr">trg_Vehiculo_SalidaDeVenta</span></div></li>
-        <li><h4>El asesor resuelve</h4><p>Confirma (autos VENDIDO) o rechaza (autos vuelven a DISPONIBLE).</p>
-          <span class="api">GET /api/solicitudes<br>PATCH /api/solicitudes/:id</span>
-          <div class="objs"><span class="o v">vw_SolicitudesResumen</span><span class="o sp">sp_ResolverSolicitud</span></div></li>
-      </ol>
-      <span class="sub">Procesos que no inicia el cliente</span>
-      <div class="bg-tasks">
-        <div><b>El admin cambia un precio</b><p class="hint"><code>PATCH /api/vehiculos/:id/precio</code> hace un UPDATE. El trigger guarda el precio anterior y el nuevo; de ahí sale la etiqueta "Bajó de precio".</p><div class="objs"><span class="o tr">trg_Vehiculo_CambioPrecio</span></div></div>
-        <div><b>Cada hora, en segundo plano</b><p class="hint">El backend ejecuta el SP que vence las solicitudes pendientes de más de 72 h.</p><div class="objs"><span class="o cu">sp_VencerSolicitudesPendientes</span></div></div>
-      </div>
-    </section>
-
-    <section class="panel" id="estados">
-      <header><h3>Ciclo de vida</h3><p>Estados posibles y qué los cambia. Solo se sale de PENDIENTE; una solicitud resuelta no vuelve atrás.</p></header>
-      <div class="machine"><h4>Producto.Estado</h4>
-        <div class="track"><span class="st ok">DISPONIBLE</span>transacción pendiente →<span class="st">RESERVADO</span>pago aceptado →<span class="st end">VENDIDO</span></div>
-        <div class="track"><span class="st">RESERVADO</span>transacción cancelada / rechazada / vencida →<span class="st ok">DISPONIBLE</span></div>
-        <div class="track"><span class="st ok">DISPONIBLE</span>admin pausa / reactiva ⇄<span class="st">PAUSADO</span></div>
-      </div>
-      <div class="machine"><h4>Transaccion.Estado</h4>
-        <div class="track"><span class="st ok">PENDIENTE</span>pago aceptado →<span class="st end">PAGADA</span></div>
-        <div class="track"><span class="st ok">PENDIENTE</span>rechazada / cancelada / vencida →<span class="st end">RECHAZADA / CANCELADA / VENCIDA</span></div>
-      </div>
-    </section>
-
-    <section class="panel" id="mapeo">
-      <header><h3>Interfaz → base de datos</h3><p>De dónde sale cada dato que muestra el mockup.</p></header>
-      <div class="tw"><table class="t">
-        <thead><tr><th>En la interfaz</th><th>Origen en la base</th></tr></thead>
-        <tbody>
-          <tr><td>"Toyota Corolla Cross XEI"</td><td>Marca.Nombre + Modelo.Nombre + Producto.Version</td></tr>
-          <tr><td>"2023 · 18.500 km"</td><td>Producto.Anio, Producto.Kilometraje</td></tr>
-          <tr><td>"Automática · Híbrido"</td><td>Producto.Transmision, Combustible.Nombre</td></tr>
-          <tr><td>"$ 28.900.000"</td><td>Producto.Precio</td></tr>
-          <tr><td>Galería de fotos</td><td>Imagen.UrlImagen, Imagen.EsPrincipal, Imagen.Orden</td></tr>
-          <tr><td>"Palermo, Buenos Aires"</td><td>Ciudad.Nombre + Provincia.Nombre</td></tr>
-          <tr><td>Historial de mantenciones y dueños</td><td>auto_info_vendedor</td></tr>
-          <tr><td>Inspecciones y observaciones</td><td>auto_revision</td></tr>
-          <tr><td>Menú SUV / Sedanes / Pick-ups</td><td>Categoria</td></tr>
-          <tr><td>Conteo del filtro "SUV 6"</td><td>vw_ConteoPorCategoria</td></tr>
-          <tr><td>Buscador, rangos y "Ordenar por"</td><td>Parámetros de sp_BuscarVehiculos</td></tr>
-          <tr><td>Corazón</td><td>Favorito</td></tr>
-          <tr><td>Carrito, contador y subtotal</td><td>CarritoItem, vw_CarritoUsuario</td></tr>
-          <tr><td>"Ingresá" / "Hola, Alex"</td><td>Usuario</td></tr>
-          <tr><td>Compra de un vehículo</td><td>Transaccion.UsuarioCompradorId, UsuarioVendedorId, ProductoId</td></tr>
-          <tr><td>Pago en línea</td><td>Pago.TokenTransbank, OrdenCompra, EstadoPago</td></tr>
-          <tr><td>Envío a domicilio</td><td>Logistica.DireccionDestino, CiudadDestinoId, EmpleadoId</td></tr>
-        </tbody>
-      </table></div>
-      <p class="hint">El modelo no incluye un detalle N:M de solicitud: cada Transaccion representa la compra de un único Producto.</p>
+  <div class="group" id="objetos">
+    <div class="group-head"><b>03</b><h2>Aplicación y objetos SQL</h2><p>Avance 60%</p></div>
+    <section class="panel">
+      <header><h3>Dónde está cada cosa</h3><p>Las vistas, procedimientos, endpoints, pruebas y la propuesta de trigger y cursor están documentados en <a href="documentacion.md"><code>docs/documentacion.md</code></a>.</p></header>
+      <ul class="rules">
+        <li><b>02</b><span><code>database/02_views.sql</code>: fn_CuotaMensual, vw_CatalogoVehiculos, vw_TransaccionesDetalle, vw_VentasPorMarca.</span></li>
+        <li><b>03</b><span><code>database/03_stored_procedures.sql</code>: 9 procedimientos (búsqueda, registro, publicar, precio, estado, crear transacción, pago, cancelar, asignar asesor).</span></li>
+        <li><b>05</b><span><code>database/05_pruebas.sql</code>: 27 casos normales, límite y de error.</span></li>
+        <li><b>06</b><span><code>database/06_entrega_final_trigger_cursor.sql</code>: trigger de historial de precios y cursor de vencimiento (entrega final).</span></li>
+      </ul>
     </section>
   </div>
 
-  <!-- ============ 4. OBJETOS SQL ============ -->
-  <div class="group">
-    <div class="group-head"><b>04</b><h2>Objetos SQL</h2><p>Lógica que vive en la base y por qué está ahí</p></div>
-
-    <section class="panel" id="vistas">
-      <header><h3>Vistas y función</h3><p>Cada vista resuelve una pantalla concreta; ninguna es copia de una tabla.</p></header>
-      <div class="kind-row"><span class="sub"><i style="background:var(--a-ubi)"></i>Vistas</span>
-        <div class="objgrid">
-          <div class="obj"><h4>vw_CatalogoVehiculos</h4><span class="for">Pantalla: grilla del catálogo</span><p>JOIN de 7 tablas, solo autos DISPONIBLE. Arma "Ciudad, Provincia", calcula la cuota con el plan más largo y marca <code>BajoDePrecio</code> con una subconsulta sobre HistorialPrecio de los últimos 30 días.</p></div>
-          <div class="obj"><h4>vw_ConteoPorCategoria</h4><span class="for">Pantalla: filtro "Tipo de vehículo"</span><p>LEFT JOIN + GROUP BY + COUNT. Incluye las categorías con 0 autos porque el filtro de estado va en el ON y no en el WHERE.</p></div>
-          <div class="obj"><h4>vw_CarritoUsuario</h4><span class="for">Pantalla: cajón del carrito</span><p>Autos del carrito con marca, modelo, precio, foto y si siguen disponibles.</p></div>
-          <div class="obj"><h4>vw_SolicitudesResumen</h4><span class="for">Pantalla: panel del asesor</span><p>Solicitud, cliente, plan, cantidad de autos y total calculado con SUM(PrecioAcordado).</p></div>
-        </div>
-      </div>
-      <div class="kind-row"><span class="sub"><i style="background:var(--muted)"></i>Función</span>
-        <div class="obj"><h4>fn_CuotaMensual(@Precio, @Cuotas, @Tasa)</h4><span class="for">Usada por vw_CatalogoVehiculos</span>
-          <p>Cuota fija con sistema francés: <code>P · i / (1 − (1 + i)^−n)</code>; si la tasa es 0, <code>P / n</code>. Con 48 cuotas al 2,4 % mensual, un auto de $28.900.000 da ~$1.020.000, igual que la tarjeta del mockup.</p>
-          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER FUNCTION dbo.fn_CuotaMensual
-    (@Precio DECIMAL(14,2), @Cuotas SMALLINT, @Tasa DECIMAL(6,4))
-RETURNS DECIMAL(14,2)
-AS
-BEGIN
-    IF @Cuotas IS NULL OR @Cuotas &lt;= 0 RETURN NULL;
-    IF @Tasa = 0 RETURN @Precio / @Cuotas;
-    RETURN @Precio * @Tasa / (1 - POWER(CAST(1 + @Tasa AS FLOAT), -@Cuotas));
-END;</pre></details>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel" id="procedimientos">
-      <header><h3>Procedimientos almacenados</h3><p>Reciben parámetros, validan con <code>THROW 50xxx</code> y, cuando tocan varias tablas, usan transacción. El backend traduce los códigos 50000–50999 a HTTP 400/409 con el mensaje; cualquier otro error es 500 sin detalles.</p></header>
-      <div class="tw"><table class="t">
-        <thead><tr><th>Procedimiento</th><th>Parámetros</th><th>Valida</th><th>Hace</th></tr></thead>
-        <tbody>
-          <tr><td><code>sp_BuscarVehiculos</code></td><td>@Texto, @CategoriaId, @PrecioMin, @PrecioMax, @AnioMin, @AnioMax, @Orden</td><td>Mín ≤ máx; orden válido</td><td>SELECT sobre vw_CatalogoVehiculos con filtros opcionales y ORDER BY con CASE</td></tr>
-          <tr><td><code>sp_AgregarAlCarrito</code></td><td>@UsuarioId, @VehiculoId</td><td>Auto DISPONIBLE; no repetido</td><td>INSERT en CarritoItem</td></tr>
-          <tr><td><code>sp_AlternarFavorito</code></td><td>@UsuarioId, @VehiculoId</td><td>Auto existe</td><td>Si existe lo borra, si no lo inserta</td></tr>
-          <tr><td><code>sp_CrearSolicitudCompra</code></td><td>@UsuarioId, @PlanId, @CiudadEntregaId, @DireccionEntrega</td><td>Carrito no vacío; plan activo; autos DISPONIBLE (con UPDLOCK)</td><td>Transacción: cabecera, detalles, autos a RESERVADO, vacía el carrito</td></tr>
-          <tr><td><code>sp_ResolverSolicitud</code></td><td>@SolicitudId, @AsesorId, @NuevoEstado</td><td>Solicitud PENDIENTE; estado válido; asesor con rol ASESOR</td><td>Transacción: estado de la solicitud y de sus autos</td></tr>
-          <tr><td><code>sp_VencerSolicitudesPendientes</code></td><td>@Horas = 72</td><td>—</td><td>Cursor que vence solicitudes antiguas</td></tr>
-        </tbody>
-      </table></div>
-      <div class="decisions">
-        <div><b>Por qué sp_CrearSolicitudCompra es una transacción</b><p>Son 4 operaciones. Si falla la tercera sin transacción, queda una solicitud sin autos reservados. Con transacción se hacen las 4 o ninguna (atomicidad).</p></div>
-        <div><b>Dos clientes compran el mismo auto a la vez</b><p>El SP lee los autos con <code>UPDLOCK, HOLDLOCK</code>. El segundo espera, ve el auto RESERVADO y recibe el error 50013.</p></div>
-        <div><b>El LIKE de la búsqueda no es inyección SQL</b><p><code>LIKE N'%' + @Texto + N'%'</code> concatena el valor del parámetro, no arma una consulta para ejecutar. Inyección habría con <code>EXEC('…' + @Texto)</code>.</p></div>
-      </div>
-    </section>
-
-    <section class="panel" id="triggers">
-      <header><h3>Triggers</h3><p>Se usan solo para lo que debe pasar siempre, venga de donde venga el cambio. La lógica de negocio principal queda a la vista en los SP.</p></header>
-      <div class="objgrid">
-        <div class="obj"><h4>trg_Vehiculo_CambioPrecio</h4><span class="for">AFTER UPDATE en Vehiculo</span>
-          <p>Cuando cambia el precio, guarda el anterior y el nuevo en HistorialPrecio.</p>
-          <div class="why"><b>Por qué trigger y no SP</b><span>El precio puede cambiarse desde un SP, el panel admin, un script o a mano. El trigger se ejecuta siempre (RN6) y alimenta "Bajó de precio".</span></div>
-          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER TRIGGER dbo.trg_Vehiculo_CambioPrecio
-ON dbo.Vehiculo
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF NOT UPDATE(Precio) RETURN;
-
-    INSERT INTO dbo.HistorialPrecio (VehiculoId, PrecioAnterior, PrecioNuevo)
-    SELECT d.VehiculoId, d.Precio, i.Precio
-    FROM inserted i
-    JOIN deleted d ON d.VehiculoId = i.VehiculoId
-    WHERE i.Precio &lt;&gt; d.Precio;
-END;</pre></details>
-        </div>
-        <div class="obj"><h4>trg_Vehiculo_SalidaDeVenta</h4><span class="for">AFTER UPDATE en Vehiculo</span>
-          <p>Cuando un auto deja de estar DISPONIBLE, lo saca de todos los carritos. Los favoritos se mantienen.</p>
-          <div class="why"><b>Por qué trigger</b><span>Un auto sale de venta por varios caminos (otra compra, pausa del admin). Así nadie llega al checkout con un auto que ya no se puede comprar.</span></div>
-          <details><summary>Ver SQL</summary><pre>CREATE OR ALTER TRIGGER dbo.trg_Vehiculo_SalidaDeVenta
-ON dbo.Vehiculo
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF NOT UPDATE(Estado) RETURN;
-
-    DELETE ci
-    FROM dbo.CarritoItem ci
-    JOIN inserted i ON i.VehiculoId = ci.VehiculoId
-    JOIN deleted  d ON d.VehiculoId = i.VehiculoId
-    WHERE d.Estado = 'DISPONIBLE' AND i.Estado &lt;&gt; 'DISPONIBLE';
-END;</pre></details>
-        </div>
-      </div>
-      <div class="caveat"><code>deleted</code> tiene las filas antes del UPDATE e <code>inserted</code> las de después. Se usa JOIN y no variables porque el trigger se dispara una vez por sentencia, aunque el UPDATE toque muchas filas.</div>
-    </section>
-
-    <section class="panel" id="cursor">
-      <header><h3>Cursor</h3><p>sp_VencerSolicitudesPendientes recorre las solicitudes PENDIENTE con más de 72 horas y llama, una por una, a sp_ResolverSolicitud con estado VENCIDA (RN5).</p></header>
-      <div class="decisions">
-        <div><b>Reutiliza la lógica existente</b><p>sp_ResolverSolicitud ya valida y cambia el estado de una solicitud y sus autos, pero recibe un solo @SolicitudId. Para aplicarlo a varias hay que recorrerlas. Así las transiciones de estado tienen una sola fuente de verdad.</p></div>
-        <div><b>Aísla errores</b><p>Cada llamada va en su propio TRY/CATCH. Si una solicitud falla, se cuenta y se sigue con las demás. Con un UPDATE masivo, un error revierte todo el lote.</p></div>
-        <div><b>Quién lo ejecuta</b><p>SQL Server Express no trae SQL Server Agent, así que lo llama el backend cada hora. En la demo: <code>EXEC dbo.sp_VencerSolicitudesPendientes @Horas = 0;</code></p></div>
-      </div>
-      <div class="caveat">Si preguntan: un UPDATE basado en conjuntos sería más rápido. Se acepta el cursor porque el volumen es bajo (decenas al día) y corre en segundo plano, donde importa la consistencia y no la velocidad.</div>
-      <details><summary>Ver SQL</summary><pre>CREATE OR ALTER PROCEDURE dbo.sp_VencerSolicitudesPendientes
-    @Horas INT = 72
-AS
-BEGIN
-    SET NOCOUNT ON;
-    DECLARE @SolicitudId INT, @Vencidas INT = 0, @Errores INT = 0;
-
-    DECLARE cur_Vencidas CURSOR LOCAL FAST_FORWARD FOR
-        SELECT SolicitudId
-        FROM dbo.SolicitudCompra
-        WHERE Estado = 'PENDIENTE'
-          AND FechaSolicitud &lt; DATEADD(HOUR, -@Horas, SYSDATETIME());
-
-    OPEN cur_Vencidas;
-    FETCH NEXT FROM cur_Vencidas INTO @SolicitudId;
-
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        BEGIN TRY
-            EXEC dbo.sp_ResolverSolicitud
-                 @SolicitudId = @SolicitudId, @AsesorId = NULL, @NuevoEstado = 'VENCIDA';
-            SET @Vencidas += 1;
-        END TRY
-        BEGIN CATCH
-            SET @Errores += 1;
-        END CATCH;
-
-        FETCH NEXT FROM cur_Vencidas INTO @SolicitudId;
-    END;
-
-    CLOSE cur_Vencidas;
-    DEALLOCATE cur_Vencidas;
-
-    SELECT @Vencidas AS SolicitudesVencidas, @Errores AS Errores;
-END;</pre></details>
-    </section>
-  </div>
-
-  <footer>DDL completo del modelo objetivo: <a href="../database/05_schema_vehiculos_objetivo.sql"><code>database/05_schema_vehiculos_objetivo.sql</code></a>.</footer>
+  <footer>DDL completo del modelo objetivo: <a href="../database/01_schema.sql"><code>database/01_schema.sql</code></a>.</footer>
 </main>
 </div>
 

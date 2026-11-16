@@ -1,7 +1,7 @@
 # Modelo relacional objetivo
 
 Diagrama ER del esquema definido en
-[`database/05_schema_vehiculos_objetivo.sql`](../database/05_schema_vehiculos_objetivo.sql).
+[`database/01_schema.sql`](../database/01_schema.sql).
 Cada transaccion representa la compra de un unico vehiculo.
 `Ubicacion` agrupa ciudad y provincia; modelo y combustible son atributos de `Producto`.
 
